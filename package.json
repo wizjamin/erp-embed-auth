@@ -1,11 +1,13 @@
 {
   "name": "@wizjamin/erp-embed-auth",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "typings": "dist/index.d.ts",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
-  "version": "0.1.0",
+  "version": "1.0.3",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "dependencies": {},
