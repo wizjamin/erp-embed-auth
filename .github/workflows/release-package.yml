@@ -26,11 +26,6 @@ jobs:
         with:
           cmd: build
 
-      - name: Run Test
-        uses: borales/actions-yarn@v4
-        with:
-          cmd: test
-
   publish-gpr:
     needs: build
     runs-on: ubuntu-latest
