@@ -1,16 +1,14 @@
 {
-  "name": "@wizjamin/erp-embed-auth",
+  "name": "react-erp-embed-auth",
+  "author": "Wisdom oyiwe <jaminwizzy@gmail.com>",
+  "version": "1.0.5",
+  "homepage": "https://github.com/wizjamin/erp-embed-auth",
   "files": [
     "dist"
   ],
   "typings": "dist/index.d.ts",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
-  "version": "1.0.5",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
-  "dependencies": {},
   "scripts": {
     "build": "rollup -c",
     "build-watch": "rollup -c -w"
@@ -30,5 +28,15 @@
   "peerDependencies": {
     "react": "^18.0.27",
     "react-dom": "^18.0.10"
+  },
+  "description": "React component for providing auth user from iframe's parent by channel communication",
+  "bugs": {
+    "url": "https://github.com/wizjamin/erp-embed-auth/issues"
+  },
+  "license": "ISC",
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wizjamin/erp-embed-auth.git"
   }
 }
