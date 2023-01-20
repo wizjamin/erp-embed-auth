@@ -8,7 +8,6 @@
   "version": "0.1.0",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
-  "private": true,
   "dependencies": {},
   "scripts": {
     "build": "rollup -c",
