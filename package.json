@@ -1,7 +1,7 @@
 {
   "name": "react-erp-embed-auth",
   "author": "Wisdom oyiwe <jaminwizzy@gmail.com>",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "homepage": "https://github.com/wizjamin/erp-embed-auth",
   "files": [
     "dist"
