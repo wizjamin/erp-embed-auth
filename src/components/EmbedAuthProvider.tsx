@@ -2,7 +2,6 @@ import React, {createContext, PropsWithChildren, useContext, useEffect, useRef, 
 declare type EventTypes = 'CURRENT_USER' | 'CLEAR_AUTH' | string;
 export declare type EmbedAuthUser = {
     id: number;
-    roleId: number;
     username: string;
     roles: number[];
     [k: string]: any;
@@ -65,6 +64,7 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
     const _onMessage = useRef((e: MessageEvent<{ type: EventTypes, [key: string]: any }>) => {
         const {type, ...data} = e.data
         const {userId, username, redirect} = data;
+        console.log('On Message:: ', type)
         async function getCurrentUser() {
             try {
                 const options = {
@@ -95,15 +95,16 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
         if (type === 'CLEAR_AUTH') {
             handleSetUser()
             return;
-        } else if (type === 'CURRENT_USER') {
+        } else if (type === 'CURRENT_USER' || !type) {
             if (_authState.current === "authenticating") return;
+            if (_authState.current === "authenticated" && currentUser?.id === userId) return
             if (userId && username) {
                 if (!currentUser || userId !== currentUser.id) {
                     setAuthStateInternal("authenticating")
                     void getCurrentUser();
                 }
             } else handleSetUser(undefined);
-        } else if (_onMessageListeners.current[type]?.length) {
+        } else if (!!type && _onMessageListeners.current[type]?.length) {
             _onMessageListeners.current[type].forEach(func => {
                 func(data)
             })

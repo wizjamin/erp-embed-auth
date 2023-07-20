@@ -28,6 +28,18 @@ var __assign = function() {
     return __assign.apply(this, arguments);
 };
 
+function __rest(s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+}
+
 function __awaiter(thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -75,6 +87,7 @@ var EmbedAuthProvider = function (_a) {
     var _onRedirect = React.useRef();
     var _authState = React.useRef(authState);
     var _commINIT = React.useRef(false);
+    var _onMessageListeners = React.useRef({});
     var isLoading = function () { return authState === "authenticating"; };
     var setAuthStateInternal = function (state) {
         _authState.current = state;
@@ -87,14 +100,21 @@ var EmbedAuthProvider = function (_a) {
         else
             setAuthStateInternal('authenticated');
     };
+    var handleOnMessageAdd = function (type, callback) {
+        var list = _onMessageListeners.current[type] || [];
+        list.filter(function (func) { return func !== callback; });
+        list.push(callback);
+        _onMessageListeners.current[type] = list;
+    };
+    var handleOnMessageRemove = function (type, callback) {
+        var list = _onMessageListeners.current[type] || [];
+        list = list.filter(function (func) { return func !== callback; });
+        _onMessageListeners.current[type] = list;
+    };
     var _onMessage = React.useRef(function (e) {
-        if (e.data.type === 'CLEAR_AUTH') {
-            handleSetUser();
-            return;
-        }
-        var _a = e.data, userId = _a.userId, username = _a.username, redirect = _a.redirect;
-        if (_authState.current === "authenticating")
-            return;
+        var _a;
+        var _b = e.data, type = _b.type, data = __rest(_b, ["type"]);
+        var userId = data.userId, username = data.username, redirect = data.redirect;
         function getCurrentUser() {
             return __awaiter(this, void 0, void 0, function () {
                 var options, result;
@@ -137,14 +157,27 @@ var EmbedAuthProvider = function (_a) {
                 });
             });
         }
-        if (userId && username) {
-            if (!currentUser || userId !== currentUser.id) {
-                setAuthStateInternal("authenticating");
-                void getCurrentUser();
-            }
+        if (type === 'CLEAR_AUTH') {
+            handleSetUser();
+            return;
         }
-        else
-            handleSetUser(undefined);
+        else if (type === 'CURRENT_USER') {
+            if (_authState.current === "authenticating")
+                return;
+            if (userId && username) {
+                if (!currentUser || userId !== currentUser.id) {
+                    setAuthStateInternal("authenticating");
+                    void getCurrentUser();
+                }
+            }
+            else
+                handleSetUser(undefined);
+        }
+        else if ((_a = _onMessageListeners.current[type]) === null || _a === void 0 ? void 0 : _a.length) {
+            _onMessageListeners.current[type].forEach(function (func) {
+                func(data);
+            });
+        }
     });
     var sendMessage = function (type, data) {
         if (!_commINIT.current) {
@@ -168,7 +201,10 @@ var EmbedAuthProvider = function (_a) {
             setOnRedirectListener: function (handler) {
                 _onRedirect.current = handler;
             },
-            requestAuth: function (data) { return sendMessage('CURRENT_USER', data); }
+            requestAuth: function (data) { return sendMessage('CURRENT_USER', data); },
+            sendMessage: sendMessage,
+            addOnMessageListener: handleOnMessageAdd,
+            removeOnMessageListener: handleOnMessageRemove
         } }, children);
 };
 var useEmbedAuth = function () {
