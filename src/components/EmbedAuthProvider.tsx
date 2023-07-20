@@ -18,6 +18,7 @@ declare type EMBEDCONTEXT = {
     setOnRedirectListener: (handler: (route: string) => void) => void;
     addOnMessageListener: (type: EventTypes, callback: MessageCallback) => void;
     removeOnMessageListener: (type: EventTypes, callback: MessageCallback) => void;
+    requestData: (type: EventTypes, data?: any) => Promise<any>
 };
 
 type EmbedAuthProviderProps = {
@@ -28,8 +29,14 @@ type EmbedAuthProviderProps = {
 const EmbedAuthContext = createContext({} as EMBEDCONTEXT);
 
 type RedirectHandler = (route: string) => void;
-
+type MessageRequest = {[k: string]: MessageRequestData | undefined}
+type MessageRequestData = {
+    requestID: number;
+    resolve: (data?: {[k: string]: any}) => void
+    reject: (e: any) => void
+}
 const {port1: _embedAuthPort1, port2: _embedAuthPort2} = new MessageChannel();
+let MESSAGE_REQUEST_INC = 1;
 const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthProviderProps) => {
     const [currentUser, setCurrentUser] = useState<EmbedAuthUser>();
     const [authState, setAuthState] = useState<AuthState>('unknown');
@@ -37,6 +44,7 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
     const _authState = useRef(authState);
     const _commINIT = useRef(false);
     const _onMessageListeners = useRef<{[k: EventTypes]: MessageCallback[]}>({})
+    const _messageRequests = useRef<MessageRequest>({})
     const isLoading = () => authState === "authenticating";
     const setAuthStateInternal = (state: AuthState) => {
         _authState.current = state;
@@ -62,7 +70,7 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
 
 
     const _onMessage = useRef((e: MessageEvent<{ type: EventTypes, [key: string]: any }>) => {
-        const {type, ...data} = e.data
+        const {type, requestID, ...data} = e.data
         const {userId, username, redirect} = data;
         console.log('On Message:: ', type)
         async function getCurrentUser() {
@@ -95,7 +103,7 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
         if (type === 'CLEAR_AUTH') {
             handleSetUser()
             return;
-        } else if (type === 'CURRENT_USER' || !type) {
+        } else if (type === 'CURRENT_USER') {
             if (_authState.current === "authenticating") return;
             if (_authState.current === "authenticated" && currentUser?.id === userId) return
             if (userId && username) {
@@ -104,12 +112,30 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
                     void getCurrentUser();
                 }
             } else handleSetUser(undefined);
-        } else if (!!type && _onMessageListeners.current[type]?.length) {
+        }  else if (!!_messageRequests.current[type]) {
+            const request = _messageRequests.current[type]!!;
+            if (request.requestID === requestID) {
+                request.resolve(data);
+                _messageRequests.current[type] = undefined
+            }
+        }
+
+        if (_onMessageListeners.current[type]?.length) {
             _onMessageListeners.current[type].forEach(func => {
                 func(data)
             })
         }
     })
+    const requestData = (type: EventTypes, data?: { [key: string]: any }): Promise<any> => {
+        return new Promise<any>((resolve, reject) => {
+            _messageRequests.current[type]?.reject(new Error('Canceled'))
+            const requestID = MESSAGE_REQUEST_INC++
+            _messageRequests.current[type] = {
+                requestID, reject, resolve
+            }
+            sendMessage(type, {requestID, ...(data || {})})
+        })
+    }
     const sendMessage = (type: EventTypes, data?: { [key: string]: any }) => {
         if (!_commINIT.current) {
             if (window.parent) {
@@ -133,7 +159,8 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
         requestAuth: (data?: any) => sendMessage('CURRENT_USER', data),
         sendMessage: sendMessage,
         addOnMessageListener: handleOnMessageAdd,
-        removeOnMessageListener: handleOnMessageRemove
+        removeOnMessageListener: handleOnMessageRemove,
+        requestData: requestData
     }}>
         {children}
     </EmbedAuthContext.Provider>

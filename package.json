@@ -1,7 +1,7 @@
 {
   "name": "react-erp-embed-auth",
   "author": "Wisdom oyiwe <jaminwizzy@gmail.com>",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "homepage": "https://github.com/wizjamin/erp-embed-auth",
   "files": [
     "dist"
@@ -10,6 +10,7 @@
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "scripts": {
+    "deploy": "npm run build && npm publish",
     "build": "rollup -c",
     "build-watch": "rollup -c -w"
   },
