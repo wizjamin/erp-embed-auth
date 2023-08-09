@@ -1,4 +1,4 @@
-import React, {createContext, PropsWithChildren, useContext, useEffect, useRef, useState} from "react";
+import React, {createContext, PropsWithChildren, useContext, useEffect, useRef, useState, useCallback} from "react";
 declare type EventTypes = 'CURRENT_USER' | 'CLEAR_AUTH' | string;
 export declare type EmbedAuthUser = {
     id: number;
@@ -45,31 +45,27 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
     const _commINIT = useRef(false);
     const _onMessageListeners = useRef<{[k: EventTypes]: MessageCallback[]}>({})
     const _messageRequests = useRef<MessageRequest>({})
-    const isLoading = () => authState === "authenticating";
-    const setAuthStateInternal = (state: AuthState) => {
+    const isLoading = useCallback(() => authState === "authenticating", [authState]);
+    const setAuthStateInternal = useCallback((state: AuthState) => {
         _authState.current = state;
         setAuthState(state);
-    }
-    const handleSetUser = (user?: EmbedAuthUser) => {
+    }, []);
+    const handleSetUser = useCallback((user?: EmbedAuthUser) => {
         setCurrentUser(user);
         if (!user) setAuthStateInternal('anonymous');
         else setAuthStateInternal('authenticated');
-    }
+    }, [setAuthStateInternal]);
 
-    const handleOnMessageAdd = (type: EventTypes, callback: MessageCallback) => {
+    const handleOnMessageAdd = useCallback((type: EventTypes, callback: MessageCallback) => {
         const list = _onMessageListeners.current[type] || []
-        list.filter(func => func !== callback);
-        list.push(callback)
-        _onMessageListeners.current[type] = list
-    }
-    const handleOnMessageRemove = (type: EventTypes, callback: MessageCallback) => {
-        let list = _onMessageListeners.current[type] || []
-        list = list.filter(func => func !== callback);
-        _onMessageListeners.current[type] = list
-    }
+        _onMessageListeners.current[type] = [...list.filter(func => func !== callback), callback]
+    }, []);
+    const handleOnMessageRemove = useCallback((type: EventTypes, callback: MessageCallback) => {
+        _onMessageListeners.current[type] = (_onMessageListeners.current[type] || []).filter(func => func !== callback);
+    }, []);
 
 
-    const _onMessage = useRef((e: MessageEvent<{ type: EventTypes, [key: string]: any }>) => {
+    const _onMessage = useCallback((e: MessageEvent<{ type: EventTypes, [key: string]: any }>) => {
         const {type, requestID, ...data} = e.data
         const {userId, username, redirect} = data;
         console.log('On Message:: ', type)
@@ -125,8 +121,13 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
                 func(data)
             })
         }
-    })
-    const requestData = (type: EventTypes, data?: { [key: string]: any }): Promise<any> => {
+    }, [authEndPoint, currentUser, handleSetUser, setAuthStateInternal])
+    useEffect(() => {
+       if (_commINIT.current){
+        _embedAuthPort1.onmessage = _onMessage;
+       }
+    }, [_onMessage]);
+    const requestData = useCallback((type: EventTypes, data?: { [key: string]: any }): Promise<any> => {
         return new Promise<any>((resolve, reject) => {
             _messageRequests.current[type]?.reject(new Error('Canceled'))
             const requestID = MESSAGE_REQUEST_INC++
@@ -135,28 +136,28 @@ const EmbedAuthProvider = ({ children, targetOrigin, authEndPoint }: EmbedAuthPr
             }
             sendMessage(type, {requestID, ...(data || {})})
         })
-    }
-    const sendMessage = (type: EventTypes, data?: { [key: string]: any }) => {
+    }, []);
+    const sendMessage = useCallback((type: EventTypes, data?: { [key: string]: any }) => {
         if (!_commINIT.current) {
             if (window.parent) {
-                _embedAuthPort1.onmessage = _onMessage.current;
+                _embedAuthPort1.onmessage = _onMessage;
                 window.parent.postMessage({type, ...(data || {})}, targetOrigin, [_embedAuthPort2])
                 _commINIT.current = true;
             }
         } else _embedAuthPort1.postMessage({type, ...(data || {})})
-    }
+    }, [_onMessage, targetOrigin]);
     useEffect(() => {
         setTimeout(() => sendMessage('CURRENT_USER') , 1200)
-    }, [])
+    }, [sendMessage])
     return <EmbedAuthContext.Provider value={{
         user: currentUser,
         authState,
         loading: isLoading,
         setUser: handleSetUser,
-        setOnRedirectListener: handler => {
+        setOnRedirectListener: useCallback(handler => {
             _onRedirect.current = handler;
-        },
-        requestAuth: (data?: any) => sendMessage('CURRENT_USER', data),
+        }, []),
+        requestAuth: useCallback((data?: any) => sendMessage('CURRENT_USER', data), [sendMessage]),
         sendMessage: sendMessage,
         addOnMessageListener: handleOnMessageAdd,
         removeOnMessageListener: handleOnMessageRemove,
